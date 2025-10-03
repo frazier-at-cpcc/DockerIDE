@@ -424,13 +424,20 @@ docker push dockeride/python-cs101:latest
 - Verify extension exists in VS Code Marketplace
 - Check container logs for installation errors
 
-### Database Won't Start (SQL)
+### Database Won't Start (SQL/NoSQL)
 ```bash
-# Check PostgreSQL status
+# Restart all databases
 ~/start-databases.sh
 
-# Check logs
+# Check PostgreSQL logs
 cat ~/postgres/logfile
+
+# Check MongoDB logs
+cat ~/mongodb/logs/mongodb.log
+
+# Manual starts
+pg_ctl -D ~/postgres start
+mongod --dbpath ~/mongodb/data --fork --logpath ~/mongodb/logs/mongodb.log
 ```
 
 ### Package Installation Fails

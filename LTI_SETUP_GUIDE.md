@@ -266,6 +266,13 @@ github_repo=https://github.com/course/database-queries
 vscode_extensions=mtxr.sqltools,mtxr.sqltools-driver-pg
 ```
 
+### MongoDB/NoSQL Assignment
+```
+language=mongodb
+github_repo=https://github.com/course/nosql-assignment
+vscode_extensions=mongodb.mongodb-vscode
+```
+
 ### Full-Stack JavaScript
 ```
 language=javascript
@@ -399,6 +406,8 @@ Direct students to access their workspace through:
 | Java | `java` | `dockeride/java` |
 | C++ | `cpp`, `c++`, `c` | `dockeride/cpp` |
 | SQL | `sql`, `mysql`, `postgresql`, `sqlite` | `dockeride/sql` |
+| MongoDB/NoSQL | `mongodb`, `mongo`, `nosql` | `dockeride/sql` |
+| General Database | `database` | `dockeride/sql` |
 
 ### LMS Variable Mapping
 
