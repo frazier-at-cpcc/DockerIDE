@@ -183,6 +183,10 @@ function getDockerImage(language) {
     'postgresql': 'dockeride/sql:latest',
     'postgres': 'dockeride/sql:latest',
     'sqlite': 'dockeride/sql:latest',
+    'mongodb': 'dockeride/sql:latest',
+    'mongo': 'dockeride/sql:latest',
+    'nosql': 'dockeride/sql:latest',
+    'database': 'dockeride/sql:latest',
     'base': 'dockeride/base:latest'
   };
 

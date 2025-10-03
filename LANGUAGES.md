@@ -123,37 +123,111 @@ custom_vscode_extensions=redhat.java,vscjava.vscode-java-debug
 
 ---
 
-### SQL
+### SQL & NoSQL (Databases)
 
-**Language codes**: `sql`, `mysql`, `postgresql`, `postgres`, `sqlite`
+**Language codes**: `sql`, `mysql`, `postgresql`, `postgres`, `sqlite`, `mongodb`, `mongo`, `nosql`, `database`
 
 **Image**: `dockeride/sql:latest`
 
 **Included Tools**:
-- MySQL client and server
-- PostgreSQL client and server
-- SQLite3
-- Python database libraries (PyMySQL, psycopg2, SQLAlchemy)
-- sqlfluff (SQL linter)
-- DBeaver (SQL IDE)
+- **SQL Databases**:
+  - MySQL client and server
+  - PostgreSQL client and server (auto-starts with sample data)
+  - SQLite3 (pre-loaded sample database)
+- **NoSQL Databases**:
+  - MongoDB 7.0 server (auto-starts with sample data)
+- **Python Libraries**: PyMySQL, psycopg2, SQLAlchemy, pymongo, motor
+- **Development Tools**: sqlfluff (SQL linter), DBeaver (SQL IDE)
 
 **VS Code Extensions**:
-- SQLTools
-- MySQL driver
-- PostgreSQL driver
-- SQLite driver
+- SQLTools (with drivers for MySQL, PostgreSQL, SQLite)
+- MongoDB for VS Code
 - PostgreSQL formatter
 
 **Pre-configured Databases**:
-- PostgreSQL (local): `psql -U student student`
-- SQLite sample DB: `~/databases/sqlite/sample.db`
-- MySQL client ready for remote connections
+
+All databases auto-start when the container launches!
+
+1. **PostgreSQL** (local, port 5432):
+   ```bash
+   psql -U student student
+   ```
+   - Database: `student`
+   - Tables: `students`, `courses` (with sample data)
+   - Pre-configured in VS Code SQLTools
+
+2. **MongoDB** (local, port 27017):
+   ```bash
+   mongosh studentdb
+   ```
+   - Database: `studentdb`
+   - Collection: `students` (with sample data)
+   - Accessible via MongoDB VS Code extension
+
+3. **SQLite** (file-based):
+   ```bash
+   sqlite3 ~/databases/sqlite/sample.db
+   ```
+   - Tables: `students`, `courses` (with sample data)
+   - Pre-configured in VS Code SQLTools
+
+**Sample Data**:
+
+All databases include the same sample dataset:
+
+**Students Table/Collection**:
+| ID | Name | Grade | Major |
+|----|------|-------|-------|
+| 1 | Alice Johnson | 90 | Computer Science |
+| 2 | Bob Smith | 85 | Data Science |
+| 3 | Charlie Brown | 92 | Computer Science |
+| 4 | Diana Prince | 88 | Information Systems |
+| 5 | Eve Adams | 95 | Data Science |
+
+**Courses Table**:
+| ID | Name | Credits |
+|----|------|---------|
+| 1 | Database Systems | 3 |
+| 2 | Data Structures | 4 |
+| 3 | Web Development | 3 |
+| 4 | Machine Learning | 4 |
+
+**Quick Start Queries**:
+
+PostgreSQL:
+```sql
+-- In VS Code terminal or SQLTools
+SELECT * FROM students WHERE grade > 85;
+SELECT major, AVG(grade) as avg_grade FROM students GROUP BY major;
+```
+
+MongoDB:
+```javascript
+// In mongosh or MongoDB extension
+db.students.find({ grade: { $gt: 85 } })
+db.students.aggregate([
+  { $group: { _id: "$major", avgGrade: { $avg: "$grade" } } }
+])
+```
+
+SQLite:
+```sql
+-- In VS Code terminal or SQLTools
+SELECT * FROM students JOIN courses;
+```
 
 **Example LTI Parameters**:
 ```
 custom_language=sql
-custom_github_repo=https://github.com/username/sql-assignment
-custom_vscode_extensions=mtxr.sqltools,mtxr.sqltools-driver-pg
+custom_github_repo=https://github.com/username/database-assignment
+custom_vscode_extensions=mtxr.sqltools,mongodb.mongodb-vscode
+```
+
+**For MongoDB-focused assignments**:
+```
+custom_language=mongodb
+custom_github_repo=https://github.com/username/nosql-assignment
+custom_vscode_extensions=mongodb.mongodb-vscode
 ```
 
 ---
@@ -287,19 +361,26 @@ mvn package
 java -jar target/myapp.jar
 ```
 
-### SQL Project
+### SQL/NoSQL Project
 ```bash
-# Start local PostgreSQL
-~/start-databases.sh
+# Databases auto-start on container launch
+# Or manually start: ~/start-databases.sh
 
-# Connect to PostgreSQL
+# PostgreSQL
 psql -U student student
-
-# Run SQL file
 psql -U student student < assignment.sql
 
+# MongoDB
+mongosh studentdb
+mongosh studentdb < queries.js
+
 # SQLite
+sqlite3 ~/databases/sqlite/sample.db
 sqlite3 ~/databases/sqlite/sample.db < queries.sql
+
+# Using VS Code Extensions
+# 1. SQLTools: Click database icon in sidebar, run queries
+# 2. MongoDB: Connect to mongodb://localhost:27017
 ```
 
 ---

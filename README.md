@@ -12,7 +12,7 @@ A Docker-based system that launches students into custom VMs with VS Code Server
   - **Python** (data science libraries, Jupyter, Flask, Django)
   - **C/C++** (GCC, Clang, CMake, Valgrind, Google Test)
   - **Java** (OpenJDK 17, Maven, Gradle, Spring Boot)
-  - **SQL** (MySQL, PostgreSQL, SQLite clients and servers)
+  - **SQL/NoSQL** (MySQL, PostgreSQL, SQLite, MongoDB - all with local servers and sample data)
 - **Scalable Architecture**: Supports both Docker and Kubernetes deployments
 - **Resource Management**: CPU and memory limits per student workspace
 - **Persistent Storage**: Optional volume mounting for student work
@@ -182,7 +182,7 @@ Configure the `language` parameter with one of:
 - `python` - Python environment
 - `cpp`, `c++`, `c` - C/C++ environment
 - `java` - Java environment
-- `sql`, `mysql`, `postgresql`, `postgres`, `sqlite` - SQL environment
+- `sql`, `mysql`, `postgresql`, `postgres`, `sqlite`, `mongodb`, `mongo`, `nosql`, `database` - Database environment (SQL + NoSQL)
 - `base` - Base environment with VS Code only
 
 ## Building Docker Images
