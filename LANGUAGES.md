@@ -2,7 +2,7 @@
 
 This document provides details on all supported programming languages and their development environments.
 
-## Supported Languages
+## Supported Languages for System
 
 ### JavaScript / TypeScript
 
