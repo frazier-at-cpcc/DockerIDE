@@ -55,3 +55,7 @@ RUN python -m venv /home/student/venv
 ENV PATH="/home/student/venv/bin:$PATH"
 
 WORKDIR /workspace
+
+# Inherit entrypoint from base image
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "password", "/workspace"]
