@@ -64,3 +64,7 @@ USER student
 RUN conan profile detect --force
 
 WORKDIR /workspace
+
+# Inherit entrypoint from base image
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "password", "/workspace"]
