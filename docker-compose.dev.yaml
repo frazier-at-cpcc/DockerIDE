@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # MySQL Database for LTI
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: dockeride_lti
+      MYSQL_USER: dockeride
+      MYSQL_PASSWORD: dockeride_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - dockeride-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for session management
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dockeride-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # LTI Service
+  lti-service:
+    build:
+      context: ./lti-service
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: mysql
+      DB_NAME: dockeride_lti
+      DB_USER: dockeride
+      DB_PASS: dockeride_pass
+      DB_DIALECT: mysql
+      SESSION_SECRET: dev-session-secret-min-32-characters-long
+      JWT_SECRET: dev-jwt-secret-min-32-characters-long
+      ENCRYPTION_KEY: dev-encryption-key-min-32-chars-long
+      INTERNAL_API_KEY: dev-internal-api-key
+      WORKSPACE_MANAGER_URL: http://workspace-manager:4000
+      PLATFORM_URL: http://localhost:8000
+      PLATFORM_NAME: Test LMS
+      PLATFORM_CLIENT_ID: dockeride-client
+      PLATFORM_AUTH_ENDPOINT: http://localhost:8000/auth
+      PLATFORM_TOKEN_ENDPOINT: http://localhost:8000/token
+      PLATFORM_KEY_ENDPOINT: http://localhost:8000/jwks
+      LTI_URL: http://localhost:3000
+      LTI_KEY: DOCKERIDE_LTI_KEY_DEV
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./lti-service:/app
+      - /app/node_modules
+    networks:
+      - dockeride-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run dev
+
+  # Workspace Manager
+  workspace-manager:
+    build:
+      context: ./workspace-manager
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      USE_KUBERNETES: "false"
+      DOCKER_SOCKET: /var/run/docker.sock
+      DOCKER_NETWORK: dockeride-network
+      INTERNAL_API_KEY: dev-internal-api-key
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      BASE_URL: http://localhost
+      CONTAINER_MEMORY: 2147483648
+      CONTAINER_CPU_SHARES: 1024
+      ENABLE_PERSISTENCE: "false"
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./workspace-manager:/app
+      - /app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - dockeride-network
+    depends_on:
+      - redis
+    command: npm run dev
+
+  # API Gateway (Nginx)
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - dockeride-network
+    depends_on:
+      - lti-service
+      - workspace-manager
+
+  # Sample VS Code Server workspace (for testing)
+  sample-workspace:
+    build:
+      context: ./docker-images/base
+      dockerfile: Dockerfile
+    environment:
+      STUDENT_ID: test-student
+      COURSE_ID: test-course
+      ASSIGNMENT_ID: test-assignment
+      VSCODE_PASSWORD: password123
+      GITHUB_REPO: https://github.com/microsoft/vscode-extension-samples.git
+    ports:
+      - "8080:8080"
+    networks:
+      - dockeride-network
+    profiles:
+      - test
+
+networks:
+  dockeride-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:

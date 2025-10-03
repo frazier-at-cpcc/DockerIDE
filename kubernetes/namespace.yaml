@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dockeride
+  labels:
+    name: dockeride
+    app: dockeride
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dockeride-quota
+  namespace: dockeride
+spec:
+  hard:
+    requests.cpu: "100"
+    requests.memory: 200Gi
+    persistentvolumeclaims: "100"
+    pods: "100"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: dockeride-limits
+  namespace: dockeride
+spec:
+  limits:
+  - max:
+      cpu: "2"
+      memory: 4Gi
+    min:
+      cpu: 200m
+      memory: 256Mi
+    default:
+      cpu: "1"
+      memory: 2Gi
+    defaultRequest:
+      cpu: 500m
+      memory: 1Gi
+    type: Container
+  - max:
+      storage: 10Gi
+    min:
+      storage: 1Gi
+    type: PersistentVolumeClaim
