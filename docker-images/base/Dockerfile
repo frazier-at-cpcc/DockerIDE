@@ -45,7 +45,8 @@ RUN groupadd -g ${USER_GID} ${USER} && \
     echo "${USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
 
 # Create necessary directories
-RUN mkdir -p ${CODE_SERVER_CONFIG} /workspace /home/student/.ssh && \
+RUN mkdir -p ${CODE_SERVER_CONFIG} /workspace /home/student/.ssh \
+    /home/student/.local/share/code-server/extensions && \
     chown -R ${USER}:${USER} /home/student /workspace
 
 # Switch to non-root user
@@ -56,6 +57,11 @@ WORKDIR /workspace
 RUN git config --global init.defaultBranch main && \
     git config --global user.email "student@dockeride.local" && \
     git config --global user.name "Student"
+
+# Pre-create code-server directories to avoid permission issues
+RUN mkdir -p /home/student/.local/share/code-server/User \
+    /home/student/.local/share/code-server/logs \
+    /home/student/.local/share/code-server/CachedExtensionVSIXs
 
 # Copy entrypoint script
 COPY --chown=${USER}:${USER} entrypoint.sh /usr/local/bin/

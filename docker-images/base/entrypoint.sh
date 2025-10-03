@@ -31,10 +31,17 @@ clone_repository() {
 install_extensions() {
     if [ -n "${VSCODE_EXTENSIONS}" ]; then
         echo "Installing VS Code extensions..."
+
+        # Ensure extensions directory exists with correct permissions
+        mkdir -p /home/student/.local/share/code-server/extensions
+
         IFS=',' read -ra EXTENSIONS <<< "${VSCODE_EXTENSIONS}"
         for ext in "${EXTENSIONS[@]}"; do
-            code-server --install-extension "${ext}" || true
+            echo "Installing ${ext}..."
+            code-server --install-extension "${ext}" --force 2>&1 | grep -v "EISDIR" || true
         done
+
+        echo "Extension installation complete"
     fi
 }
 
@@ -76,6 +83,13 @@ auth: password
 password: ${PASSWORD}
 cert: false
 EOF
+
+echo "Starting code-server..."
+echo "Configuration:"
+echo "  - Bind address: 0.0.0.0:${PORT}"
+echo "  - Workspace: /workspace"
+echo "  - Password: ${PASSWORD}"
+echo ""
 
 # Start code-server
 exec "$@"
