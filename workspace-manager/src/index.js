@@ -172,8 +172,17 @@ function getDockerImage(language) {
     'java': 'dockeride/java:latest',
     'nodejs': 'dockeride/nodejs:latest',
     'javascript': 'dockeride/nodejs:latest',
+    'js': 'dockeride/nodejs:latest',
+    'typescript': 'dockeride/nodejs:latest',
+    'ts': 'dockeride/nodejs:latest',
     'cpp': 'dockeride/cpp:latest',
+    'c++': 'dockeride/cpp:latest',
     'c': 'dockeride/cpp:latest',
+    'sql': 'dockeride/sql:latest',
+    'mysql': 'dockeride/sql:latest',
+    'postgresql': 'dockeride/sql:latest',
+    'postgres': 'dockeride/sql:latest',
+    'sqlite': 'dockeride/sql:latest',
     'base': 'dockeride/base:latest'
   };
 

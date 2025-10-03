@@ -4,10 +4,15 @@ A Docker-based system that launches students into custom VMs with VS Code Server
 
 ## Features
 
-- **LTI 1.3 Integration**: Secure authentication and grade passback to LMS platforms
+- **LTI 1.1 & 1.3 Integration**: Secure authentication and grade passback to LMS platforms (supports both LTI versions)
 - **Instant Development Environments**: Students get VS Code in the browser with zero setup
 - **Assignment-Specific Configuration**: Automatic GitHub repository cloning and compiler setup
-- **Multi-Language Support**: Pre-built images for Python, Java, Node.js, C/C++, and more
+- **Multi-Language Support**: Pre-built images for:
+  - **JavaScript/TypeScript** (Node.js, React, Angular, Vue)
+  - **Python** (data science libraries, Jupyter, Flask, Django)
+  - **C/C++** (GCC, Clang, CMake, Valgrind, Google Test)
+  - **Java** (OpenJDK 17, Maven, Gradle, Spring Boot)
+  - **SQL** (MySQL, PostgreSQL, SQLite clients and servers)
 - **Scalable Architecture**: Supports both Docker and Kubernetes deployments
 - **Resource Management**: CPU and memory limits per student workspace
 - **Persistent Storage**: Optional volume mounting for student work
@@ -114,7 +119,30 @@ spec:
 
 ## LMS Configuration
 
-### Canvas LMS
+### LTI 1.1 Configuration (Legacy LMS)
+
+For LMS platforms that only support LTI 1.1 (older versions of Canvas, Blackboard, Moodle):
+
+1. **Configure LTI Tool**:
+   - Consumer Key: Set `LTI_CONSUMER_KEY` environment variable (default: `dockeride-key`)
+   - Shared Secret: Set `LTI_CONSUMER_SECRET` environment variable (default: `dockeride-secret`)
+   - Launch URL: `https://dockeride.example.com/lti/launch`
+   - Privacy: Send name, email, role
+
+2. **Custom Parameters**:
+```
+custom_github_repo=https://github.com/yourusername/assignment-repo
+custom_language=python
+custom_vscode_extensions=ms-python.python,ms-python.vscode-pylance
+```
+
+3. **Grade Passback**: Enable "Outcomes Service" in your LMS for automatic grade passback
+
+### LTI 1.3 Configuration (Modern LMS)
+
+For LMS platforms supporting LTI 1.3 (Canvas, Moodle 3.10+, Blackboard Learn):
+
+#### Canvas LMS
 
 1. Add external tool:
    - Name: DockerIDE
@@ -131,13 +159,14 @@ language=python
 vscode_extensions=ms-python.python,ms-python.vscode-pylance
 ```
 
-### Moodle LMS
+#### Moodle LMS
 
 1. Add LTI Tool:
    - Tool name: DockerIDE
    - Tool URL: `https://dockeride.example.com/lti/launch`
    - Consumer key: `dockeride-client`
    - Shared secret: Configure in LTI service
+   - LTI version: LTI 1.3
 
 2. Custom parameters:
 ```
@@ -145,6 +174,16 @@ assignment_id=$ResourceLink.id
 github_repo=https://github.com/yourusername/assignment-repo
 language=java
 ```
+
+### Supported Languages
+
+Configure the `language` parameter with one of:
+- `javascript`, `js`, `typescript`, `ts`, `nodejs` - JavaScript/TypeScript environment
+- `python` - Python environment
+- `cpp`, `c++`, `c` - C/C++ environment
+- `java` - Java environment
+- `sql`, `mysql`, `postgresql`, `postgres`, `sqlite` - SQL environment
+- `base` - Base environment with VS Code only
 
 ## Building Docker Images
 
@@ -165,9 +204,17 @@ docker build -t dockeride/python:latest .
 cd docker-images/java
 docker build -t dockeride/java:latest .
 
-# Node.js
+# Node.js/JavaScript
 cd docker-images/nodejs
 docker build -t dockeride/nodejs:latest .
+
+# C++
+cd docker-images/cpp
+docker build -t dockeride/cpp:latest .
+
+# SQL
+cd docker-images/sql
+docker build -t dockeride/sql:latest .
 ```
 
 ## Environment Variables
@@ -179,9 +226,11 @@ docker build -t dockeride/nodejs:latest .
 - `DB_PASS`: Database password
 - `JWT_SECRET`: Secret for JWT signing (min 32 chars)
 - `SESSION_SECRET`: Express session secret
-- `ENCRYPTION_KEY`: LTI encryption key
-- `PLATFORM_URL`: LMS platform URL
-- `PLATFORM_CLIENT_ID`: LTI client ID
+- `ENCRYPTION_KEY`: LTI 1.3 encryption key (min 32 chars)
+- `LTI_CONSUMER_KEY`: LTI 1.1 consumer key (default: `dockeride-key`)
+- `LTI_CONSUMER_SECRET`: LTI 1.1 shared secret (default: `dockeride-secret`)
+- `PLATFORM_URL`: LMS platform URL (LTI 1.3 only)
+- `PLATFORM_CLIENT_ID`: LTI 1.3 client ID
 
 ### Workspace Manager
 - `USE_KUBERNETES`: Use Kubernetes instead of Docker (`true`/`false`)
