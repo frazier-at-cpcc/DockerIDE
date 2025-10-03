@@ -1,4 +1,4 @@
-# SQL development environment
+# SQL and NoSQL development environment
 FROM dockeride/base:latest
 
 USER root
@@ -9,7 +9,16 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     sqlite3 \
     mariadb-client \
+    gnupg \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+# Install MongoDB
+RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - && \
+    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && \
+    apt-get update && \
+    apt-get install -y mongodb-org && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install database servers for local development
 RUN apt-get update && apt-get install -y \
@@ -17,7 +26,7 @@ RUN apt-get update && apt-get install -y \
     postgresql \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python database libraries
+# Install Python database libraries (SQL and NoSQL)
 RUN pip3 install --no-cache-dir \
     pymysql \
     psycopg2-binary \
@@ -25,7 +34,9 @@ RUN pip3 install --no-cache-dir \
     pandas \
     ipython-sql \
     mysql-connector-python \
-    pyodbc
+    pyodbc \
+    pymongo \
+    motor
 
 # Install DBeaver SQL IDE (headless mode for scripting)
 RUN wget -O /tmp/dbeaver.deb https://dbeaver.io/files/dbeaver-ce_latest_amd64.deb && \
