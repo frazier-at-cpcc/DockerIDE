@@ -21,18 +21,21 @@ RUN apt-get update && apt-get install -y \
     libboost-all-dev \
     libgtest-dev \
     libgmock-dev \
+    zip \
+    unzip \
+    tar \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Build and install Google Test
+# Build and install Google Test and Google Mock
 WORKDIR /tmp
-RUN cd /usr/src/gtest && \
+RUN cd /usr/src/googletest && \
     cmake . && \
     make && \
-    cp lib/*.a /usr/lib && \
-    cd /usr/src/gmock && \
-    cmake . && \
-    make && \
-    cp lib/*.a /usr/lib
+    cp -r lib/*.a /usr/lib/ || cp -r */lib*.a /usr/lib/ && \
+    cp -r googlemock/lib*.a /usr/lib/ 2>/dev/null || true && \
+    cp -r googletest/lib*.a /usr/lib/ 2>/dev/null || true
 
 # Install modern C++ package manager (vcpkg)
 RUN git clone https://github.com/Microsoft/vcpkg.git /opt/vcpkg && \
