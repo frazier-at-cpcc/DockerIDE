@@ -187,18 +187,110 @@ jobs:
             echo "status=failure" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create issue for failed builds
+      - name: Download all job logs
         if: steps.build_results.outputs.status == 'failure'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            const runId = context.runId;
+
+            // Get all jobs for this workflow run
+            const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            let failedJobs = '';
+            for (const job of jobs.jobs) {
+              if (job.conclusion === 'failure') {
+                // Download logs for failed job
+                const logResponse = await github.rest.actions.downloadJobLogsForWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  job_id: job.id,
+                });
+
+                failedJobs += `\n### ${job.name} (Failed)\n\n`;
+                failedJobs += '<details>\n<summary>Click to view full logs</summary>\n\n```\n';
+                failedJobs += logResponse.data;
+                failedJobs += '\n```\n</details>\n\n';
+              }
+            }
+
+            fs.writeFileSync('failed-jobs.txt', failedJobs);
+            core.setOutput('failed_jobs', failedJobs);
+
+      - name: Create issue for failed builds
+        if: steps.build_results.outputs.status == 'failure'
+        id: create_issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const runId = context.runId;
+
+            // Get all jobs for this workflow run
+            const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            // Build detailed error information
+            let errorDetails = '';
+            for (const job of jobs.jobs) {
+              if (job.conclusion === 'failure') {
+                errorDetails += `\n### ❌ ${job.name}\n\n`;
+
+                // Get steps for this job
+                for (const step of job.steps) {
+                  if (step.conclusion === 'failure') {
+                    errorDetails += `**Failed Step:** ${step.name}\n\n`;
+
+                    // Try to download logs
+                    try {
+                      const logUrl = await github.rest.actions.downloadJobLogsForWorkflowRun({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        job_id: job.id,
+                      });
+
+                      // Extract relevant error lines from logs
+                      const logs = logUrl.data;
+                      const errorLines = logs.split('\n')
+                        .filter(line =>
+                          line.includes('ERROR') ||
+                          line.includes('error') ||
+                          line.includes('FAILED') ||
+                          line.includes('failed') ||
+                          line.includes('npm ERR!') ||
+                          line.includes('exit code')
+                        )
+                        .slice(-50); // Last 50 error lines
+
+                      if (errorLines.length > 0) {
+                        errorDetails += '<details>\n<summary>Error Details</summary>\n\n```\n';
+                        errorDetails += errorLines.join('\n');
+                        errorDetails += '\n```\n</details>\n\n';
+                      }
+                    } catch (e) {
+                      errorDetails += `_Could not fetch detailed logs: ${e.message}_\n\n`;
+                    }
+                  }
+                }
+              }
+            }
+
             const title = `🤖 Docker Build Failed - Automated Repair Needed`;
             const body = `@claude
 
             ## Docker Image Build Failed
 
-            The automated build process for Docker images has failed. Please investigate and fix these issues.
+            The automated build process for Docker images has failed. Here are the complete error details for you to fix.
 
             ### Build Results
             - **Base Image**: ${{ needs.build-base.result }}
@@ -207,31 +299,35 @@ jobs:
 
             ### Workflow Details
             - **Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            - **Commit**: ${{ github.sha }}
-            - **Branch**: ${{ github.ref_name }}
+            - **Commit**: \`${{ github.sha }}\`
+            - **Branch**: \`${{ github.ref_name }}\`
+
+            ### Failed Jobs and Error Details
+
+            ${errorDetails}
 
             ### Action Required
             Please:
-            1. Review the failed build logs in the workflow run above
-            2. Identify which image(s) failed to build and why
-            3. Check for dependency issues, syntax errors, or missing files
-            4. Fix the Dockerfiles or related configuration files
-            5. Test the fixes locally if possible
-            6. Create a pull request with the fixes
+            1. Analyze the error messages above
+            2. Identify the root cause (missing dependencies, syntax errors, etc.)
+            3. Fix the affected Dockerfiles or configuration files
+            4. Test the fixes locally if possible
+            5. Create a pull request with the fixes
 
-            ### Files to Check
+            ### Files That May Need Changes
             - \`docker-images/*/Dockerfile\`
             - \`api-gateway/Dockerfile\`
             - \`lti-service/Dockerfile\`
             - \`workspace-manager/Dockerfile\`
             - \`.github/workflows/docker-build.yml\`
 
-            ### Common Issues to Look For
+            ### Common Issues to Check
             - Missing package dependencies
-            - Incorrect base image references
+            - Incorrect base image references (\`BASE_IMAGE\` build arg)
             - Syntax errors in Dockerfiles
-            - Missing source files (package.json, etc.)
+            - Missing source files (package.json, package-lock.json, etc.)
             - Network or download failures
+            - Build arguments not being passed correctly
 
             **Triggered by**: ${{ github.event_name }} on commit ${{ github.sha }}
             `;

@@ -322,12 +322,80 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const runId = context.runId;
+
+            // Get all jobs for this workflow run
+            const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            // Build detailed error information
+            let errorDetails = '';
+            for (const job of jobs.jobs) {
+              if (job.conclusion === 'failure') {
+                errorDetails += `\n### ❌ ${job.name}\n\n`;
+
+                // Get steps for this job
+                for (const step of job.steps) {
+                  if (step.conclusion === 'failure') {
+                    errorDetails += `**Failed Step:** ${step.name}\n\n`;
+
+                    // Try to download and parse logs
+                    try {
+                      const logUrl = await github.rest.actions.downloadJobLogsForWorkflowRun({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        job_id: job.id,
+                      });
+
+                      // Extract relevant error lines from logs
+                      const logs = logUrl.data;
+                      const errorLines = logs.split('\n')
+                        .filter(line =>
+                          line.includes('❌') ||
+                          line.includes('ERROR') ||
+                          line.includes('error') ||
+                          line.includes('FAILED') ||
+                          line.includes('failed') ||
+                          line.includes('Container failed') ||
+                          line.includes('health check failed') ||
+                          line.includes('exit code') ||
+                          line.includes('exit 1')
+                        )
+                        .slice(-100); // Last 100 error-related lines
+
+                      if (errorLines.length > 0) {
+                        errorDetails += '<details>\n<summary>Error Details</summary>\n\n```\n';
+                        errorDetails += errorLines.join('\n');
+                        errorDetails += '\n```\n</details>\n\n';
+                      }
+
+                      // Also capture container logs if mentioned
+                      const containerLogLines = logs.split('\n')
+                        .filter(line => line.includes('docker logs'))
+                        .slice(0, 50);
+
+                      if (containerLogLines.length > 0) {
+                        errorDetails += '<details>\n<summary>Container Logs</summary>\n\n```\n';
+                        errorDetails += containerLogLines.join('\n');
+                        errorDetails += '\n```\n</details>\n\n';
+                      }
+                    } catch (e) {
+                      errorDetails += `_Could not fetch detailed logs: ${e.message}_\n\n`;
+                    }
+                  }
+                }
+              }
+            }
+
             const title = `🤖 Docker Tests Failed - Automated Repair Needed`;
             const body = `@claude
 
             ## Docker Image Tests Failed
 
-            The automated tests for Docker images have failed. Please investigate and fix these issues.
+            The automated tests for Docker images have failed. Here are the complete error details for you to fix.
 
             ### Test Results
             - **Base Image**: ${{ needs.test-base.result }}
@@ -337,21 +405,40 @@ jobs:
 
             ### Workflow Details
             - **Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            - **Commit**: ${{ github.sha }}
-            - **Branch**: ${{ github.ref_name }}
+            - **Commit**: \`${{ github.sha }}\`
+            - **Branch**: \`${{ github.ref_name }}\`
+
+            ### Failed Tests and Error Details
+
+            ${errorDetails}
 
             ### Action Required
-            @claude-code Please:
-            1. Review the failed test logs in the workflow run above
-            2. Identify the root cause of the failures
-            3. Fix the Dockerfiles or related configuration files
-            4. Test the fixes locally if possible
-            5. Create a pull request with the fixes
+            Please:
+            1. Analyze the error messages above
+            2. Identify why the containers failed to start or tests failed
+            3. Common issues:
+               - Missing ENTRYPOINT or CMD in Dockerfiles
+               - Entrypoint script not found or not executable
+               - Language tools not installed correctly
+               - Health check endpoints not responding
+               - Database initialization failures
+            4. Fix the affected Dockerfiles or configuration files
+            5. Test the fixes locally using the test scripts
+            6. Create a pull request with the fixes
 
-            ### Files to Check
-            - \`docker-images/*/Dockerfile\`
-            - \`.github/workflows/docker-build.yml\`
-            - \`.github/workflows/docker-test.yml\`
+            ### Files That May Need Changes
+            - \`docker-images/*/Dockerfile\` - Check ENTRYPOINT and CMD
+            - \`docker-images/base/entrypoint.sh\` - Verify entrypoint script
+            - \`.github/workflows/docker-test.yml\` - Test configuration
+            - Language-specific setup in Dockerfiles
+
+            ### Testing Locally
+            You can test fixes locally using:
+            \`\`\`bash
+            ./test-local.sh test-python
+            ./test-local.sh test-nodejs
+            # etc.
+            \`\`\`
 
             **Triggered by**: ${{ github.event_name }} on commit ${{ github.sha }}
             `;
