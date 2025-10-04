@@ -21,7 +21,7 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
 ENV VSCODE_EXTENSIONS="redhat.java,vscjava.vscode-java-debug,vscjava.vscode-java-test,vscjava.vscode-maven,vscjava.vscode-java-dependency,vscjava.vscode-java-pack"
 
 # Install Spring Boot CLI
-RUN curl -L https://github.com/spring-projects/spring-boot/releases/download/v3.2.0/spring-boot-cli-3.2.0-bin.tar.gz | tar xz -C /opt && \
+RUN curl -L https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-cli/3.2.0/spring-boot-cli-3.2.0-bin.tar.gz | tar xz -C /opt && \
     ln -s /opt/spring-3.2.0/bin/spring /usr/local/bin/spring
 
 # Create directories for Maven and Gradle
