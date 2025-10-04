@@ -1,5 +1,6 @@
 # C++ development environment
-FROM dockeride/base:latest
+ARG BASE_IMAGE=dockeride/base:latest
+FROM ${BASE_IMAGE}
 
 USER root
 
