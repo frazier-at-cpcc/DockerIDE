@@ -21,7 +21,7 @@ RUN \
   ln -sf /usr/bin/python3 /usr/bin/python && \
   ln -sf /usr/bin/pip3 /usr/bin/pip && \
   echo "**** install common Python packages ****" && \
-  pip install --no-cache-dir \
+  pip install --no-cache-dir --break-system-packages \
     numpy \
     pandas \
     matplotlib \
