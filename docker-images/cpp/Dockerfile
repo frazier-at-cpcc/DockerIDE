@@ -44,7 +44,7 @@ RUN git clone https://github.com/Microsoft/vcpkg.git /opt/vcpkg && \
     ln -s /opt/vcpkg/vcpkg /usr/local/bin/vcpkg
 
 # Install Conan package manager
-RUN pip3 install conan
+RUN pip3 install --break-system-packages conan
 
 # Install VS Code C++ extensions
 ENV VSCODE_EXTENSIONS="ms-vscode.cpptools,ms-vscode.cpptools-extension-pack,ms-vscode.cmake-tools,twxs.cmake,jeff-hykin.better-cpp-syntax"
