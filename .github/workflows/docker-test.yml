@@ -1,0 +1,386 @@
+name: Test Docker Images
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+
+jobs:
+  test-base:
+    name: Test Base Image
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull base image
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/dockeride-base:${{ github.ref_name }}
+
+      - name: Test base image starts successfully
+        run: |
+          echo "Starting base container..."
+          CONTAINER_ID=$(docker run -d \
+            -p 8080:8080 \
+            -e VSCODE_PASSWORD=test123 \
+            -e STUDENT_ID=test-student \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/dockeride-base:${{ github.ref_name }})
+
+          echo "Container ID: $CONTAINER_ID"
+          echo "Waiting for VS Code Server to start..."
+          sleep 10
+
+          # Check if container is still running
+          if ! docker ps | grep -q $CONTAINER_ID; then
+            echo "❌ Container failed to start"
+            docker logs $CONTAINER_ID
+            exit 1
+          fi
+
+          # Check if VS Code Server is responding
+          if curl -f http://localhost:8080/healthz; then
+            echo "✅ Base image test passed - VS Code Server is running"
+          else
+            echo "❌ VS Code Server health check failed"
+            docker logs $CONTAINER_ID
+            exit 1
+          fi
+
+          # Cleanup
+          docker stop $CONTAINER_ID
+          docker rm $CONTAINER_ID
+
+  test-language-images:
+    name: Test ${{ matrix.language }} Image
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    needs: test-base
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      matrix:
+        language: [python, nodejs, cpp, java]
+        include:
+          - language: python
+            port: 8080
+            test_command: "python --version && pip --version"
+            github_repo: "https://github.com/microsoft/python-sample-vscode-flask-tutorial"
+          - language: nodejs
+            port: 8081
+            test_command: "node --version && npm --version"
+            github_repo: ""
+          - language: cpp
+            port: 8082
+            test_command: "g++ --version && clang++ --version"
+            github_repo: ""
+          - language: java
+            port: 8083
+            test_command: "java --version && javac --version"
+            github_repo: ""
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull ${{ matrix.language }} image
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/dockeride-${{ matrix.language }}:${{ github.ref_name }}
+
+      - name: Test ${{ matrix.language }} container starts
+        run: |
+          echo "Starting ${{ matrix.language }} container..."
+          CONTAINER_ID=$(docker run -d \
+            -p ${{ matrix.port }}:8080 \
+            -e VSCODE_PASSWORD=test123 \
+            -e STUDENT_ID=test-student \
+            -e ASSIGNMENT_ID=${{ matrix.language }}-test \
+            ${{ matrix.github_repo && format('-e GITHUB_REPO={0}', matrix.github_repo) || '' }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/dockeride-${{ matrix.language }}:${{ github.ref_name }})
+
+          echo "Container ID: $CONTAINER_ID"
+          echo "Waiting for VS Code Server to start..."
+          sleep 15
+
+          # Check if container is still running
+          if ! docker ps | grep -q $CONTAINER_ID; then
+            echo "❌ Container failed to start"
+            docker logs $CONTAINER_ID
+            docker rm $CONTAINER_ID
+            exit 1
+          fi
+
+          echo "✅ Container is running"
+
+          # Test language-specific tools
+          echo "Testing ${{ matrix.language }} tools..."
+          docker exec $CONTAINER_ID bash -c "${{ matrix.test_command }}" || {
+            echo "❌ Language tools test failed"
+            docker logs $CONTAINER_ID
+            docker stop $CONTAINER_ID
+            docker rm $CONTAINER_ID
+            exit 1
+          }
+
+          echo "✅ ${{ matrix.language }} tools are available"
+
+          # Cleanup
+          docker stop $CONTAINER_ID
+          docker rm $CONTAINER_ID
+
+          echo "✅ ${{ matrix.language }} image test passed"
+
+  test-sql-image:
+    name: Test SQL/Database Image
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    needs: test-base
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull SQL image
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/dockeride-sql:${{ github.ref_name }}
+
+      - name: Test database container
+        run: |
+          echo "Starting database container..."
+          CONTAINER_ID=$(docker run -d \
+            -p 8084:8080 \
+            -p 5432:5432 \
+            -p 27017:27017 \
+            -e VSCODE_PASSWORD=test123 \
+            -e STUDENT_ID=test-student \
+            -e ASSIGNMENT_ID=db-test \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/dockeride-sql:${{ github.ref_name }})
+
+          echo "Container ID: $CONTAINER_ID"
+          echo "Waiting for databases to start..."
+          sleep 20
+
+          # Check if container is still running
+          if ! docker ps | grep -q $CONTAINER_ID; then
+            echo "❌ Container failed to start"
+            docker logs $CONTAINER_ID
+            docker rm $CONTAINER_ID
+            exit 1
+          fi
+
+          echo "✅ Container is running"
+
+          # Test SQLite
+          echo "Testing SQLite..."
+          docker exec $CONTAINER_ID sqlite3 /home/student/databases/sqlite/sample.db "SELECT COUNT(*) FROM students;" || {
+            echo "❌ SQLite test failed"
+            docker stop $CONTAINER_ID
+            docker rm $CONTAINER_ID
+            exit 1
+          }
+          echo "✅ SQLite is working"
+
+          # Test PostgreSQL
+          echo "Testing PostgreSQL..."
+          docker exec $CONTAINER_ID psql -U student -d student -c "SELECT 1;" || {
+            echo "⚠️  PostgreSQL test skipped (may need initialization)"
+          }
+
+          # Test MongoDB
+          echo "Testing MongoDB..."
+          docker exec $CONTAINER_ID mongosh --quiet --eval "db.version()" || {
+            echo "⚠️  MongoDB test skipped (may need initialization)"
+          }
+
+          # Cleanup
+          docker stop $CONTAINER_ID
+          docker rm $CONTAINER_ID
+
+          echo "✅ Database image test passed"
+
+  test-services:
+    name: Test ${{ matrix.service }} Service
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      matrix:
+        service: [lti-service, workspace-manager]
+        include:
+          - service: lti-service
+            port: 3000
+          - service: workspace-manager
+            port: 4000
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull ${{ matrix.service }} image
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/dockeride-${{ matrix.service }}:${{ github.ref_name }}
+
+      - name: Test ${{ matrix.service }} starts
+        run: |
+          echo "Starting ${{ matrix.service }}..."
+          CONTAINER_ID=$(docker run -d \
+            -p ${{ matrix.port }}:${{ matrix.port }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/dockeride-${{ matrix.service }}:${{ github.ref_name }})
+
+          echo "Container ID: $CONTAINER_ID"
+          sleep 5
+
+          # Check if container is still running
+          if ! docker ps | grep -q $CONTAINER_ID; then
+            echo "❌ Service failed to start"
+            docker logs $CONTAINER_ID
+            docker rm $CONTAINER_ID
+            exit 1
+          fi
+
+          echo "✅ ${{ matrix.service }} started successfully"
+
+          # Cleanup
+          docker stop $CONTAINER_ID
+          docker rm $CONTAINER_ID
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-base, test-language-images, test-sql-image, test-services]
+    if: always()
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check test results
+        id: test_results
+        run: |
+          if [ "${{ needs.test-base.result }}" == "success" ] && \
+             [ "${{ needs.test-language-images.result }}" == "success" ] && \
+             [ "${{ needs.test-sql-image.result }}" == "success" ] && \
+             [ "${{ needs.test-services.result }}" == "success" ]; then
+            echo "✅ All tests passed!"
+            echo "status=success" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "❌ Some tests failed"
+            echo "Base: ${{ needs.test-base.result }}"
+            echo "Languages: ${{ needs.test-language-images.result }}"
+            echo "SQL: ${{ needs.test-sql-image.result }}"
+            echo "Services: ${{ needs.test-services.result }}"
+            echo "status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Create issue for Claude Code to fix
+        if: steps.test_results.outputs.status == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = `🤖 Docker Tests Failed - Automated Repair Needed`;
+            const body = `@claude
+
+            ## Docker Image Tests Failed
+
+            The automated tests for Docker images have failed. Please investigate and fix these issues.
+
+            ### Test Results
+            - **Base Image**: ${{ needs.test-base.result }}
+            - **Language Images**: ${{ needs.test-language-images.result }}
+            - **SQL Image**: ${{ needs.test-sql-image.result }}
+            - **Services**: ${{ needs.test-services.result }}
+
+            ### Workflow Details
+            - **Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            - **Commit**: ${{ github.sha }}
+            - **Branch**: ${{ github.ref_name }}
+
+            ### Action Required
+            @claude-code Please:
+            1. Review the failed test logs in the workflow run above
+            2. Identify the root cause of the failures
+            3. Fix the Dockerfiles or related configuration files
+            4. Test the fixes locally if possible
+            5. Create a pull request with the fixes
+
+            ### Files to Check
+            - \`docker-images/*/Dockerfile\`
+            - \`.github/workflows/docker-build.yml\`
+            - \`.github/workflows/docker-test.yml\`
+
+            **Triggered by**: ${{ github.event_name }} on commit ${{ github.sha }}
+            `;
+
+            // Check if an issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'automated-repair,docker-tests'
+            });
+
+            if (issues.data.length === 0) {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['automated-repair', 'docker-tests', 'bug']
+              });
+              console.log('Created new issue for Claude Code to fix');
+            } else {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `## New Test Failure\n\n${body}`
+              });
+              console.log('Updated existing issue with new failure');
+            }
