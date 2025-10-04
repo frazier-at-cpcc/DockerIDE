@@ -62,7 +62,8 @@ RUN mkdir -p /home/student/postgres && \
     chown -R student:student /home/student/postgres
 
 # Initialize SQLite sample database
-RUN mkdir -p /home/student/databases/sqlite
+RUN mkdir -p /home/student/databases/sqlite && \
+    chown -R student:student /home/student/databases/sqlite
 
 # Initialize MongoDB data directory
 RUN mkdir -p /home/student/mongodb/data /home/student/mongodb/logs && \
