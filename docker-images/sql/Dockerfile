@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     mysql-client \
     postgresql-client \
     sqlite3 \
-    mariadb-client \
     gnupg \
     wget \
     && rm -rf /var/lib/apt/lists/*
