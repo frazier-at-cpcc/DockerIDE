@@ -158,3 +158,109 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-base, build-language-images, build-services]
+    if: always()
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check build results
+        id: build_results
+        run: |
+          if [ "${{ needs.build-base.result }}" == "success" ] && \
+             [ "${{ needs.build-language-images.result }}" == "success" ] && \
+             [ "${{ needs.build-services.result }}" == "success" ]; then
+            echo "✅ All builds passed!"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Some builds failed"
+            echo "Base: ${{ needs.build-base.result }}"
+            echo "Languages: ${{ needs.build-language-images.result }}"
+            echo "Services: ${{ needs.build-services.result }}"
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create issue for failed builds
+        if: steps.build_results.outputs.status == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = `🤖 Docker Build Failed - Automated Repair Needed`;
+            const body = `@claude
+
+            ## Docker Image Build Failed
+
+            The automated build process for Docker images has failed. Please investigate and fix these issues.
+
+            ### Build Results
+            - **Base Image**: ${{ needs.build-base.result }}
+            - **Language Images**: ${{ needs.build-language-images.result }}
+            - **Services**: ${{ needs.build-services.result }}
+
+            ### Workflow Details
+            - **Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            - **Commit**: ${{ github.sha }}
+            - **Branch**: ${{ github.ref_name }}
+
+            ### Action Required
+            Please:
+            1. Review the failed build logs in the workflow run above
+            2. Identify which image(s) failed to build and why
+            3. Check for dependency issues, syntax errors, or missing files
+            4. Fix the Dockerfiles or related configuration files
+            5. Test the fixes locally if possible
+            6. Create a pull request with the fixes
+
+            ### Files to Check
+            - \`docker-images/*/Dockerfile\`
+            - \`api-gateway/Dockerfile\`
+            - \`lti-service/Dockerfile\`
+            - \`workspace-manager/Dockerfile\`
+            - \`.github/workflows/docker-build.yml\`
+
+            ### Common Issues to Look For
+            - Missing package dependencies
+            - Incorrect base image references
+            - Syntax errors in Dockerfiles
+            - Missing source files (package.json, etc.)
+            - Network or download failures
+
+            **Triggered by**: ${{ github.event_name }} on commit ${{ github.sha }}
+            `;
+
+            // Check if an issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'automated-repair,docker-build'
+            });
+
+            if (issues.data.length === 0) {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['automated-repair', 'docker-build', 'bug']
+              });
+              console.log('Created new issue for Claude to fix build failures');
+            } else {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `## New Build Failure\n\n${body}`
+              });
+              console.log('Updated existing issue with new build failure');
+            }
