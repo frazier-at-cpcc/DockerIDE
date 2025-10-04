@@ -35,14 +35,14 @@ ENV VSCODE_EXTENSIONS="dbaeumer.vscode-eslint,esbenp.prettier-vscode,ms-vscode.v
 # Create npm directories and configure npm as root
 RUN mkdir -p /home/student/.npm /home/student/.yarn /home/student/.pnpm /home/student/.npm-global && \
     chown -R student:student /home/student/.npm /home/student/.yarn /home/student/.pnpm /home/student/.npm-global && \
-    npm config set cache /home/student/.npm --global && \
     echo 'export PATH=/home/student/.npm-global/bin:$PATH' >> /home/student/.bashrc
 
 # Switch back to student user
 USER student
 
-# Configure npm prefix as student user
-RUN npm config set prefix /home/student/.npm-global
+# Configure npm for student user
+RUN npm config set prefix /home/student/.npm-global && \
+    npm config set cache /home/student/.npm
 
 # Set Node environment variables
 ENV NODE_ENV=development \
