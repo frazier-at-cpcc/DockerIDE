@@ -63,6 +63,12 @@ ENV LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8
 
+# Create student user and group
+RUN groupadd -g 1000 student && \
+    useradd -u 1000 -g 1000 -m -s /bin/bash student && \
+    echo "student:changeme" | chpasswd && \
+    usermod -aG sudo student
+
 # Add local files (s6-overlay configuration)
 COPY /root /
 
