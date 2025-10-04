@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     sqlite3 \
     gnupg \
     wget \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MongoDB
