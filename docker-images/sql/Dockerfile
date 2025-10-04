@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python database libraries (SQL and NoSQL)
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --no-cache-dir --break-system-packages \
     pymysql \
     psycopg2-binary \
     sqlalchemy \
@@ -48,7 +48,7 @@ RUN wget -O /tmp/dbeaver.deb https://dbeaver.io/files/dbeaver-ce_latest_amd64.de
     rm -rf /var/lib/apt/lists/*
 
 # Install sqlfluff (SQL linter)
-RUN pip3 install --no-cache-dir sqlfluff
+RUN pip3 install --no-cache-dir --break-system-packages sqlfluff
 
 # Install VS Code SQL and MongoDB extensions
 ENV VSCODE_EXTENSIONS="mtxr.sqltools,mtxr.sqltools-driver-mysql,mtxr.sqltools-driver-pg,mtxr.sqltools-driver-sqlite,mongodb.mongodb-vscode,bradymholt.pgformatter"
