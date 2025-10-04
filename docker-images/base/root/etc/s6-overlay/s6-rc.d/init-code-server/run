@@ -1,0 +1,72 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+# Create necessary directories
+mkdir -p /config/{extensions,data,workspace,.ssh}
+
+# Configure git defaults
+if [[ ! -f /config/.gitconfig ]]; then
+    cat > /config/.gitconfig <<EOF
+[init]
+    defaultBranch = main
+[user]
+    email = student@dockeride.local
+    name = Student
+EOF
+fi
+
+# Setup bashrc and profile if they don't exist
+if [[ ! -f /config/.bashrc ]]; then
+    cp /root/.bashrc /config/.bashrc
+fi
+
+if [[ ! -f /config/.profile ]]; then
+    cp /root/.profile /config/.profile
+fi
+
+# Handle GitHub repository cloning if GITHUB_REPO is set
+if [ -n "${GITHUB_REPO}" ]; then
+    echo "Cloning repository: ${GITHUB_REPO}"
+
+    # Check if we have a GitHub token for private repos
+    if [ -n "${GITHUB_TOKEN}" ]; then
+        git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+    fi
+
+    # Clone the repository
+    if [ -n "${GITHUB_BRANCH}" ]; then
+        git clone -b "${GITHUB_BRANCH}" "${GITHUB_REPO}" /config/workspace/project 2>/dev/null || \
+        git clone "${GITHUB_REPO}" /config/workspace/project
+    else
+        git clone "${GITHUB_REPO}" /config/workspace/project
+    fi
+
+    # If student branch doesn't exist, create it
+    if [ -n "${STUDENT_ID}" ]; then
+        cd /config/workspace/project
+        git checkout -b "student-${STUDENT_ID}" 2>/dev/null || git checkout "student-${STUDENT_ID}"
+    fi
+fi
+
+# Setup SSH keys if provided
+if [ -n "${SSH_PRIVATE_KEY}" ]; then
+    echo "Setting up SSH keys..."
+    echo "${SSH_PRIVATE_KEY}" > /config/.ssh/id_rsa
+    chmod 600 /config/.ssh/id_rsa
+    ssh-keyscan github.com >> /config/.ssh/known_hosts 2>/dev/null
+fi
+
+# Fix permissions (ignore contents of workspace)
+PUID=${PUID:-911}
+if [[ ! "$(stat -c %u /config/.profile 2>/dev/null || echo 0)" == "${PUID}" ]]; then
+    echo "Setting up permissions for user (PUID: ${PUID})"
+    find /config -path "/config/workspace" -prune -o -exec lsiown abc:abc {} + 2>/dev/null || true
+    lsiown abc:abc /config/workspace 2>/dev/null || true
+fi
+
+chmod 700 /config/.ssh 2>/dev/null || true
+if [[ -n "$(ls -A /config/.ssh 2>/dev/null)" ]]; then
+    find /config/.ssh/ -type d -exec chmod 700 '{}' \; 2>/dev/null || true
+    find /config/.ssh/ -type f -exec chmod 600 '{}' \; 2>/dev/null || true
+    find /config/.ssh/ -type f -iname '*.pub' -exec chmod 644 '{}' \; 2>/dev/null || true
+fi

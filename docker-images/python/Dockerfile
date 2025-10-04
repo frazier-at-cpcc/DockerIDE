@@ -5,7 +5,10 @@ FROM ${BASE_IMAGE}
 USER root
 
 # Install Python and common packages
-RUN apt-get update && apt-get install -y \
+RUN \
+  echo "**** install Python ****" && \
+  apt-get update && \
+  apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
@@ -13,15 +16,12 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libssl-dev \
     libffi-dev \
-    python3-setuptools \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create symlinks for python commands (force overwrite if exists)
-RUN ln -sf /usr/bin/python3 /usr/bin/python && \
-    ln -sf /usr/bin/pip3 /usr/bin/pip
-
-# Install common Python packages
-RUN pip install --no-cache-dir \
+    python3-setuptools && \
+  echo "**** create python symlinks ****" && \
+  ln -sf /usr/bin/python3 /usr/bin/python && \
+  ln -sf /usr/bin/pip3 /usr/bin/pip && \
+  echo "**** install common Python packages ****" && \
+  pip install --no-cache-dir \
     numpy \
     pandas \
     matplotlib \
@@ -38,25 +38,21 @@ RUN pip install --no-cache-dir \
     flake8 \
     pylint \
     autopep8 \
-    virtualenv
-
-# Install VS Code Python extensions
-ENV VSCODE_EXTENSIONS="ms-python.python,ms-python.vscode-pylance,ms-python.debugpy,ms-toolsai.jupyter,ms-toolsai.jupyter-keymap,ms-toolsai.jupyter-renderers"
-
-# Switch back to student user
-USER student
+    virtualenv && \
+  echo "**** clean up ****" && \
+  apt-get clean && \
+  rm -rf \
+    /tmp/* \
+    /var/lib/apt/lists/* \
+    /var/tmp/*
 
 # Set Python environment variables
 ENV PYTHONIOENCODING=utf-8 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Create virtual environment directory
-RUN python -m venv /home/student/venv
-ENV PATH="/home/student/venv/bin:$PATH"
+# Set VS Code Python extensions
+ENV VSCODE_EXTENSIONS="ms-python.python,ms-python.vscode-pylance,ms-python.debugpy,ms-toolsai.jupyter,ms-toolsai.jupyter-keymap,ms-toolsai.jupyter-renderers"
 
-WORKDIR /workspace
-
-# Inherit entrypoint from base image
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "password", "/workspace"]
+# Add Python-specific s6 overlay configuration
+COPY /root /

@@ -1,0 +1,17 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+# Install Python-specific VS Code extensions if VSCODE_EXTENSIONS is set
+if [ -n "${VSCODE_EXTENSIONS}" ]; then
+    echo "Installing VS Code extensions for Python..."
+
+    IFS=',' read -ra EXTENSIONS <<< "${VSCODE_EXTENSIONS}"
+    for ext in "${EXTENSIONS[@]}"; do
+        echo "Installing ${ext}..."
+        s6-setuidgid abc /app/code-server/bin/code-server \
+            --extensions-dir /config/extensions \
+            --install-extension "${ext}" 2>&1 | grep -v "EISDIR" || true
+    done
+
+    echo "Python extension installation complete"
+fi

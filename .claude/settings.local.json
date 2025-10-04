@@ -1,7 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(docker run:*)",
+      "Bash(dos2unix:*)",
+      "Bash(.test-local.ps1 test-python)",
+      "Bash(powershell.exe:*)",
+      "Bash(docker build:*)",
+      "Bash(Start-Sleep -Seconds 5)",
+      "Bash(docker logs:*)",
+      "Bash(curl:*)",
+      "Bash(docker rm:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
